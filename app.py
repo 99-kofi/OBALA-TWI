@@ -1,17 +1,16 @@
-import os
 import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from gradio_client import Client
-from dotenv import load_dotenv
 
-load_dotenv()  # Load variables from .env
+# ========================
+# 🔹 CONFIG — insert your Gemini API key here
+# ========================
+GEMINI_API_KEY = "AIzaSyDpAmrLDJjDTKi7TD-IS3vqQlBAYVrUbv4"  # ⬅️ put your real key here
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
 
-GEMINI_API_URL = os.getenv("GEMINI_API_URL")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GEMINI_API_KEY or not GEMINI_API_URL:
-    raise RuntimeError("Missing GEMINI_API_KEY or GEMINI_API_URL in environment")
+if not GEMINI_API_KEY:
+    raise RuntimeError("Missing GEMINI_API_KEY — please set it in the code")
 
 app = FastAPI()
 tts_client = Client("Ghana-NLP/Southern-Ghana-TTS-Public")
@@ -20,20 +19,18 @@ class ChatReq(BaseModel):
     prompt: str
 
 def call_gemini_generate(prompt: str) -> str:
-    headers = {
-        "Authorization": f"Bearer {GEMINI_API_KEY}",
-        "Content-Type": "application/json",
-    }
     payload = {
-        "model": "gemini-2.0-flash",
-        "prompt": prompt,
-        "temperature": 0.2,
-        "max_output_tokens": 512
+        "contents": [
+            {"parts": [{"text": prompt}]}
+        ]
     }
+    headers = {"Content-Type": "application/json"}
     resp = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=20)
     if resp.status_code != 200:
         raise HTTPException(status_code=500, detail=f"LLM error: {resp.text}")
-    return resp.json().get("output_text", "")
+
+    data = resp.json()
+    return data["candidates"][0]["content"]["parts"][0]["text"]
 
 def translate_to_twi(english_text: str) -> str:
     prompt = f"Translate this into Asante Twi:\n{english_text}"
